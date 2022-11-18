@@ -86,7 +86,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI']='postgres://wslnapfcxanodr:a7264b32be99407001919e87affb1e06e86a4f8a844daa4eb722678aed8d4cfe@ec2-54-163-34-107.compute-1.amazonaws.com:5432/dfb4pqic2dqauj'
+app.config['SQLALCHEMY_DATABASE_URI']='postgresql+psycopg2://wslnapfcxanodr:a7264b32be99407001919e87affb1e06e86a4f8a844daa4eb722678aed8d4cfe@ec2-54-163-34-107.compute-1.amazonaws.com:5432/dfb4pqic2dqauj'
 
 db=SQLAlchemy(app)
 
