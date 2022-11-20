@@ -81,47 +81,192 @@
 #
 # if __name__ == "__main__":
 #     app.run(debug=True,port=8000)
-from flask import Flask, render_template, request
+# from flask import Flask, render_template, request
+# from flask_sqlalchemy import SQLAlchemy
+#
+# app = Flask(__name__)
+#
+# app.config['SQLALCHEMY_DATABASE_URI']='postgresql+psycopg2://wslnapfcxanodr:a7264b32be99407001919e87affb1e06e86a4f8a844daa4eb722678aed8d4cfe@ec2-54-163-34-107.compute-1.amazonaws.com:5432/dfb4pqic2dqauj'
+#
+# db=SQLAlchemy(app)
+#
+# # Create our database model
+# class User(db.Model):
+#     __tablename__ = "users"
+#     id = db.Column(db.Integer, primary_key=True)
+#     email = db.Column(db.String(120), unique=True)
+#
+#     def __init__(self, email):
+#         self.email = email
+#
+#     def __repr__(self):
+#         return '<E-mail %r>' % self.email
+#
+# # Set "homepage" to index.html
+# @app.route('/')
+# def index():
+#     return render_template('index.html')
+#
+# # Save e-mail to database and send to success page
+# @app.route('/prereg', methods=['POST'])
+# def prereg():
+#     email = None
+#     if request.method == 'POST':
+#         email = request.form['email']
+#         # Check that email does not already exist (not a great query, but works)
+#         if not db.session.query(User).filter(User.email == email).count():
+#             reg = User(email)
+#             db.session.add(reg)
+#             db.session.commit()
+#             print('hello')
+#             return render_template('success.html')
+#     return render_template('index.html')
+#
+# if __name__ == '__main__':
+#     app.debug = True
+#     app.run()
+import os
+from datetime import datetime
+
+from Scripts.bottle import redirect
+from flask import Flask, request, jsonify, abort, url_for, flash
+from werkzeug.utils import secure_filename
+
+UPLOAD_FOLDER = 'static/uploads/'
+
+# import cors as cors
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:umer@localhost/reciever'
+from heyoo import WhatsApp
+whatsapp = WhatsApp('EAAJVc3j40G8BABLa7dKqetvZC3lKyCKYnSI1gIaqUKLv6ZAZBkVHN3qv4rZCmkT4DZBhZCcEYZAfOpeLLLu2D2XUtWtg3js7HHFZCZB3DATSQycjtnt7n9c7YzTyea5BMcdEINDZCBo3nBQL95q639jjCeLHtlABeihzMzPEOkgSInNmnx9D9MefmkodOQwieFbXIPIVjsSmVFYAZDZD', '110829038490956')
+l=whatsapp.query_media_url('844082013517554')
+mime_type='application/pdf'
+l=whatsapp.download_media(l ,mime_type)
+l
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+from flask_cors import CORS, cross_origin
 
-app.config['SQLALCHEMY_DATABASE_URI']='postgresql+psycopg2://wslnapfcxanodr:a7264b32be99407001919e87affb1e06e86a4f8a844daa4eb722678aed8d4cfe@ec2-54-163-34-107.compute-1.amazonaws.com:5432/dfb4pqic2dqauj'
-
-db=SQLAlchemy(app)
-
-# Create our database model
-class User(db.Model):
-    __tablename__ = "users"
+CORS(app)
+class Recipe(db.Model):
+    __tablename__ = "recipe"
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True)
+    recipe = db.Column(db.JSON)
+class Reciever(db.Model):
+    __tablename__ = 'reciever'
+    id = db.Column(db.Integer, primary_key = True)
+    name = db. Column(db.String(100), nullable = False)
+    message = db.Column(db.String(1000), nullable = False)
+    number = db.Column(db.Integer(), nullable = False)
+    type = db.Column(db.String(100), nullable = False)
+    # date = db.Column(db.DateTime, default=datetime.now())
+class Image(db.Model):
+    __tablename__ = "image"
+    id = db.Column(db.Integer, primary_key=True)
+    profile_pic = db.Column(db.String(100))
 
-    def __init__(self, email):
-        self.email = email
 
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif','wav'])
+# db = MongoEngine()
+# db.init_app(app)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/upload', methods=['POST'])
+def upload_image():
+    l = whatsapp.query_media_url('844082013517554')
+    mime_type = 'application/pdf'
+    l = whatsapp.download_media(l, mime_type)
+    l
+    if 'file' not in request.files:
+        flash('No file part')
+        return redirect(request.url)
+    file = request.files['file']
+
+    file = l
+    print(file)
+    if file.filename == '':
+        flash('No image selected for uploading')
+        return redirect(request.url)
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        # file.save(secure_filename(file.filename))
+        usersave = Image( profile_pic=file.filename)
+        db.session.add(usersave)
+        db.session.commit()
+        print('upload_image filename: ' + filename)
+        flash('Image successfully uploaded and displayed below')
+        o=url_for('static', filename='uploads/' + filename)
+        # l = 'https://myupla.herokuapp.com/'+url_for('static', filename='uploads/' + filename)
+        # print('url is',l)
+
+        return redirect(url_for('static', filename='uploads/' + filename), code=301)
+    else:
+        flash('Allowed image types are -> png, jpg, jpeg, gif')
+        return redirect(request.url)
+class Sender(db.Model):
+    __tablename__ = 'sender'
+    id = db.Column(db.Integer, primary_key = True)
+    name = db. Column(db.String(100), nullable = False)
+    message = db.Column(db.String(1000), nullable = False)
+    number = db.Column(db.Integer(), nullable = False)
+    type = db.Column(db.String(100), nullable = False)
+@cross_origin()
+@app.route('/pets', methods=['POST'])
+def create_pet():
+    pet_data = request.get_json()
+
+    name = pet_data['name']
+    message = pet_data['message']
+    number = pet_data['number']
+    type = pet_data['type']
+    # date = pet_data['date']
+    pet = Reciever(name=name, message=message, number=number, type=type)
+    db.session.add(pet)
+    db.session.commit()
+
+    return jsonify({"success": True, "response": "Pet added"})
     def __repr__(self):
-        return '<E-mail %r>' % self.email
+        return "<Reciever %r>" % self.name
 
-# Set "homepage" to index.html
-@app.route('/')
-def index():
-    return render_template('index.html')
+@cross_origin()
+@app.route('/getpets', methods = ['GET'])
+def getpets():
+     all_pets = []
+     pets = Reciever.query.all()
+     for pet in pets:
+          results = {
+                    "name":pet.name,
+                    "message":pet.message,
+                    "number":pet.number,
+                    "type":pet.type,
+                     }
+          all_pets.append(results)
 
-# Save e-mail to database and send to success page
-@app.route('/prereg', methods=['POST'])
-def prereg():
-    email = None
-    if request.method == 'POST':
-        email = request.form['email']
-        # Check that email does not already exist (not a great query, but works)
-        if not db.session.query(User).filter(User.email == email).count():
-            reg = User(email)
-            db.session.add(reg)
-            db.session.commit()
-            print('hello')
-            return render_template('success.html')
-    return render_template('index.html')
-
+     return jsonify(
+            {
+                "success": True,
+                "pets": all_pets,
+                "total_pets": len(pets),
+            }
+        )
+@cross_origin()
+@app.route('/js', methods=['POST'])
+def create_js():
+    per_1 = Recipe(recipe={'object': 'whatsapp_business_account', 'entry': [{'id': '110664218507574', 'changes': [{'value': {'messaging_product': 'whatsapp', 'metadata': {'display_phone_number': '15550813755', 'phone_number_id': '110829038490956'}, 'contacts': [{'profile': {'name': 'umer'}, 'wa_id': '923462901820'}], 'messages': [{'from': '923462901820', 'id': 'wamid.HBgMOTIzNDYyOTAxODIwFQIAEhgUM0VCMEM4RkFFQzQxN0FFRjQ4RjIA', 'timestamp': '1668859762', 'text': {'body': 'hello'}, 'type': 'text'}]}, 'field': 'messages'}]}]})
+    db.session.add(per_1)
+    db.session.commit()
+    return jsonify({"success": True, "response": "Pet added"})
+    def __repr__(self):
+        return "<Reciever %r>" % self.name
+per_1 = Recipe(recipe={'object': 'whatsapp_business_account', 'entry': [{'id': '110664218507574', 'changes': [{'value': {'messaging_product': 'whatsapp', 'metadata': {'display_phone_number': '15550813755', 'phone_number_id': '110829038490956'}, 'contacts': [{'profile': {'name': 'umer'}, 'wa_id': '923462901820'}], 'messages': [{'from': '923462901820', 'id': 'wamid.HBgMOTIzNDYyOTAxODIwFQIAEhgUM0VCMEM4RkFFQzQxN0FFRjQ4RjIA', 'timestamp': '1668859762', 'text': {'body': 'hello'}, 'type': 'text'}]}, 'field': 'messages'}]}]})
+db.session.add(per_1)
+db.session.commit()
 if __name__ == '__main__':
-    app.debug = True
-    app.run()
+  app.run(debug=True)
