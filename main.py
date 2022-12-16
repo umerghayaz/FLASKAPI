@@ -20,3 +20,10 @@
 #         return "<Reciever %r>" % self.name
 # if __name__ == '__main__':
 #   app.run(debug=True)
+def fetch():
+    global data1
+    data1 = 'Username'
+def print_info():
+    fetch()
+    print(data1)
+print(print_info())
